@@ -79,7 +79,7 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
     a = 0.6 # axial induction
     aline = 0.0 # tangential induction factor
     
-    Niterations = 10^5
+    Niterations = 10**5
     count = 1
     Erroriterations = 1e-5# error limit for iteration process, in absolute value of induction
     conv = False
@@ -149,7 +149,7 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
     return [a , aline, r_R, fnorm , ftan, gamma, inflowangle, alpha, fQ]
 
 """ ------- Sections ------- """
-def ExecuteBEM(PR, WT, N, plotter, mode = 'constant'):
+def ExecuteBEM(N, plotter, mode, TSR):
 
         """ 1. plot CT as a function of induction "a", with and without Glauert correction """
         # define a as a range
@@ -186,25 +186,13 @@ def ExecuteBEM(PR, WT, N, plotter, mode = 'constant'):
 
         """ 3. import polar """
         
-        if (WT == True and PR == False):
-            # Wind turbine rotor
-            airfoil = 'DU95W180.cvs'
-            data1=pd.read_csv(airfoil, header=0,
-                                names = ["alfa", "cl", "cd", "cm"],  sep='\s+')
-            polar_alpha = data1['alfa'][:]
-            polar_cl = data1['cl'][:]
-            polar_cd = data1['cd'][:]
-        elif (PR == True and WT == False):
-            # Propeller case
-            airfoil = 'ARAD8polar.csv'
-            data1=pd.read_csv(airfoil, header=0,
-                              names = ["alfa", "cl", "cd", "cm"],  sep='\s+')
-#            polar_alpha = data1['alfa'][:]
-#            polar_cl = data1['cl'][:]
-#            polar_cd = data1['cd'][:]
-            polar_alpha = np.flipud(-data1['alfa'][:])
-            polar_cl = np.flipud(-data1['cl'][:])
-            polar_cd = np.flipud(data1['cd'][:])
+        # Wind turbine rotor
+        airfoil = 'DU95W180.cvs'
+        data1=pd.read_csv(airfoil, header=0,
+                            names = ["alfa", "cl", "cd", "cm"],  sep='\s+')
+        polar_alpha = data1['alfa'][:]
+        polar_cl = data1['cl'][:]
+        polar_cd = data1['cd'][:]
 
         # plot polars of the airfoil C-alfa and Cl-Cd
         if plotter == True:
@@ -222,66 +210,33 @@ def ExecuteBEM(PR, WT, N, plotter, mode = 'constant'):
 
             
         """ 4. Define the blade geometry """
-        if (WT == True and PR == False):
-            # Wind turbine rotor
-            # Basic rotor specs
-            Radius = 50
-            NBlades = 3
-            
-            # Blade specs
-            if mode == 'constant':
-                delta_r_R = 1/N
-                r_R = np.arange(0.2, 1+delta_r_R/2, delta_r_R)
-            elif mode == 'cosinus': 
-                r_R = np.zeros(N)
-                for i in range(N):
-                    r_R[i] = 0.2 + (0.4)*(1-m.cos(((i)/(N-1))*m.pi))
-                    
-                # plt.figure(figsize=(12, 6))
-                # plt.scatter(r_R,r_R)
-                # plt.title('Radial distribution')
-            else:
-                display('Please enter a valid distribution mode.')
-
-            pitch = 2 # degrees
-            twist_distribution = -14*(1-r_R)+pitch # degrees
-            chord_distribution = 3*(1-r_R)+1 # meters
-            
-            # Operational specs
-            Uinf = 10 # unperturbed wind speed in m/s
-            TSR = 10 # tip speed ratio
-            Omega = Uinf*TSR/Radius
-        elif (PR == True and WT == False):
-            # Propeller rotor
-            # Basic rotor specs
-            Radius = 0.7
-            NBlades = 6
-            
-            # Blade specs
-            if mode == 'constant':
-                delta_r_R = 1/N
-                r_R = np.arange(0.25, 1+delta_r_R/2, delta_r_R)
-            elif mode == 'cosinus': 
-                r_R = np.zeros(N)
-                for i in range(N):
-                    r_R[i] = 0.25 + (0.75/2)*(1-m.cos(((i)/(N-1))*m.pi))
-                    
-                # plt.figure(figsize=(12, 6))
-                # plt.scatter(r_R,r_R)
-                # plt.title('Radial distribution')
-            else:
-                display('Please enter a valid distribution mode.')
-                
-            twist_distribution = (-50*(r_R)+35+46) # degrees
-            chord_distribution = 0.18-0.06*(r_R) # meters
-            
-            # Operational specs
-            Uinf = 60 # unperturbed wind speed in m/s
-            Omega = 1200/60*2*np.pi
-            TSR = Omega*Radius/Uinf
-            # h = 2000 #m
-        # solve BEM model
+        # Wind turbine rotor
+        # Basic rotor specs
+        Radius = 50
+        NBlades = 3
         
+        # Blade specs
+        if mode == 'constant':
+            delta_r_R = 1/N
+            r_R = np.arange(0.2, 1+delta_r_R/2, delta_r_R)
+        elif mode == 'cosinus': 
+            r_R = np.zeros(N)
+            for i in range(N):
+                r_R[i] = 0.2 + (0.4)*(1-m.cos(((i)/(N-1))*m.pi))
+                
+            # plt.figure(figsize=(12, 6))
+            # plt.scatter(r_R,r_R)
+            # plt.title('Radial distribution')
+        else:
+            display('Please enter a valid distribution mode.')
+
+        pitch = 2 # degrees
+        twist_distribution = -14*(1-r_R)+pitch # degrees
+        chord_distribution = 3*(1-r_R)+1 # meters
+        
+        # Operational specs
+        Uinf = 10 # unperturbed wind speed in m/s
+        Omega = Uinf*TSR/Radius        
         results =np.zeros([len(r_R)-1,9]) 
         
         for i in range(len(r_R)-1):

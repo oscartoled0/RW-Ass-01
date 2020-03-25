@@ -6,7 +6,7 @@ import math as m
 
 """ ------- Functions ------- """
 
-def CTfunction(a, glauert = False):
+def CTfunction(a, glauert = True):
     """
     This function calculates the thrust coefficient as a function of induction factor 'a'
     'glauert' defines if the Glauert correction for heavily loaded rotors should be used; default value is false
@@ -50,26 +50,17 @@ def PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, TSR, NBlades, axial
     return Froot*Ftip, Ftip, Froot
 
 """ ------- Sections ------- """
-def ExecuteBEM_opt(PROpt, WTOpt, N, Variables):
+def ExecuteBEM_opt(N, Variables):
 
     """ POLARS """
-        
-    if (WTOpt == True and PROpt == False):
-        # Wind turbine rotor
-        airfoil = 'DU95W180.cvs'
-        data1=pd.read_csv(airfoil, header=0,
-                            names = ["alfa", "cl", "cd", "cm"],  sep='\s+')
-        polar_alpha = data1['alfa'][:]
-        polar_cl = data1['cl'][:]
-        polar_cd = data1['cd'][:]
-    elif (PROpt == True and WTOpt == False):
-        # Propeller case
-        airfoil = 'ARAD8polar.csv'
-        data1=pd.read_csv(airfoil, header=0,
-                          names = ["alfa", "cl", "cd", "cm"],  sep='\s+')
-        polar_alpha = np.flipud(-data1['alfa'][:])
-        polar_cl = np.flipud(-data1['cl'][:])
-        polar_cd = np.flipud(data1['cd'][:])
+    
+    # Wind turbine rotor
+    airfoil = 'DU95W180.cvs'
+    data1=pd.read_csv(airfoil, header=0,
+                        names = ["alfa", "cl", "cd", "cm"],  sep='\s+')
+    polar_alpha = data1['alfa'][:]
+    polar_cl = data1['cl'][:]
+    polar_cd = data1['cd'][:]
         
     """ MAXIMUM EFFICIENCY """
     
@@ -83,30 +74,17 @@ def ExecuteBEM_opt(PROpt, WTOpt, N, Variables):
             cl_E = polar_cl[i]
             cd_E = polar_cd[i]
             
-    display(alpha_E)
-
     """ BLADE GEOMETRY AND FLOW CONDITIONS"""
     
-    delta_r_R = 1/N
-    if PROpt == True:
-        
-        NBlades = Variables[0]
-        Radius = Variables[1]
-        Uinf = Variables[2]
-        TSR = Variables[4]
-        Omega = Variables[4]
-        r = np.arange(0.25, 1+delta_r_R/2, delta_r_R)
-        
-    elif WTOpt == True:
-        
-        CT = Variables[0]
-        NBlades = Variables[1]
-        Radius = Variables[2]
-        Uinf = Variables[3]
-        TSR = Variables[4]
-        Omega = Variables[5]
-        r = np.arange(0.2, 1+delta_r_R/2, delta_r_R)
-    
+    delta_r_R = 1/N                
+    CT = Variables[0]
+    NBlades = Variables[1]
+    Radius = Variables[2]
+    Uinf = Variables[3]
+    TSR = Variables[4]
+    Omega = Uinf*TSR/Radius
+    r = np.arange(0.2, 1+delta_r_R/2, delta_r_R)
+
     """ CONSTRUCT OPTIMIZED BLADE """
     
     # We define the vectors of parameters
@@ -120,6 +98,7 @@ def ExecuteBEM_opt(PROpt, WTOpt, N, Variables):
     gamma = np.zeros(r.size-1)
     r_R = np.zeros(r.size-1)
     vmag2 = np.zeros(r.size-1)
+    CTd = np.zeros(r.size-1)
 
     for i in range(r.size-1):
         
@@ -127,11 +106,7 @@ def ExecuteBEM_opt(PROpt, WTOpt, N, Variables):
         Area = np.pi*((r[i+1]*Radius)**2-(r[i]*Radius)**2)
         
         # The induction factors optimum are given by a = f(C_T) but aline a function of a
-        if WTOpt == True:
-            a[i] = ainduction(CT)
-        else:
-            a[i] = 1/3 # Betz limit
-            CT = CTfunction(a[i], True)
+        a[i] = ainduction(CT)
             
         Prandtl, Prandtltip, Prandtlroot = PrandtlTipRootCorrection(r_R[i], r[0], r[-1], Omega*Radius/Uinf, NBlades, a[i]);
         if (Prandtl < 1e-4): 
@@ -140,9 +115,8 @@ def ExecuteBEM_opt(PROpt, WTOpt, N, Variables):
         if a[i]>0.95: # a cannot be larger than 0.95 because if not reverse flow
             a[i] = 0.95
             
-        CTd=CTfunction(a, glauert = False)
+        CTd[i]=CTfunction(a[i], glauert = True)
         
-        aline[i] = a[i]*(1-a[i])/(TSR**2*r_R[i]**2)
         vnorm = Uinf*(1-a[i])
         vtan = (1+aline[i])*Omega*r_R[i]*Radius # tangential velocity at rotor
         phi[i] = np.arctan2(vnorm,vtan)
@@ -155,7 +129,7 @@ def ExecuteBEM_opt(PROpt, WTOpt, N, Variables):
         vmag2[i] = vnorm**2 + vtan**2
         chord[i] = fnorm[i]/(0.5*vmag2[i]*(cl_E*m.cos(phi[i]) + cd_E*m.sin(phi[i])))
         ftan[i] = 0.5*vmag2[i]*chord[i]*(cl_E*np.sin(phi[i])-cd_E*np.cos(phi[i]))
-        gamma[i] = (4*m.pi*a[i]*(1-a[i])*Uinf**2)/Omega
+        gamma[i] = 0.5*np.sqrt(vmag2[i])*cl_E*chord[i]
         
     dr = (r[1:]-r[:-1])*Radius
     CP = np.sum(dr*ftan*r_R*NBlades*Radius*Omega/(0.5*Uinf**3*np.pi*Radius**2))   
