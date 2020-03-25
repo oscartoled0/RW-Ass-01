@@ -4,14 +4,12 @@ import numpy as np
 import BEMmodel as BEM
 
 """ ---- User defined variables ---- """
-PR = False
-WT = True
 N = 100 # annulus spacing
 mode = 'constant' # 2 possible modes: constant and cosinus distribution of annulus. 
                   # Write 'cosinus' or 'constant' if you want to change the distribution.
-plotter = False # If you don't want to plot all the default plots please enter False
+plotter = True # If you don't want to plot all the default plots please enter False
 
-[results, CT, CP, Uinf, Radius] = BEM.ExecuteBEM(PR, WT, N, plotter, mode)
+[results, CT, CP, Uinf, Radius] = BEM.ExecuteBEM(N, plotter, mode)
 
 """ Plots Section II.C """
 
@@ -30,7 +28,7 @@ ax2.set_ylabel(r'$\phi$ [deg]', color=color, fontsize=20)  # we already handled 
 ax2.plot(results[:,2], results[:,6], color=color, label=r'$\phi$')
 ax2.tick_params(axis='y', labelcolor=color)
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
-plt.savefig('Alpha_Inflow_prop.pdf', format='pdf', dpi=1000)
+# plt.savefig('Alpha_Inflow_prop.pdf', format='pdf', dpi=1000)
 
 # axial induction vs. r/R
 fig1 = plt.figure(figsize=(12, 6))
@@ -41,7 +39,7 @@ plt.grid()
 plt.xlabel('r/R', fontsize=20)
 plt.ylabel(r'$a$ and $a^,$', fontsize=20)
 plt.legend(fontsize=20)
-plt.savefig('Axial_Tang_Induct_prop.pdf', format='pdf', dpi=1000)
+# plt.savefig('Axial_Tang_Induct_prop.pdf', format='pdf', dpi=1000)
 
 # Cn Ct vs. r/R
 fig1 = plt.figure(figsize=(12, 6))
@@ -52,7 +50,7 @@ plt.grid()
 plt.xlabel('r/R', fontsize=20)
 plt.ylabel(r'$C_t$ and $C_n$ [N]', fontsize=20)
 plt.legend(fontsize=20)
-plt.savefig('Ct_Cn_prop.pdf', format='pdf', dpi=1000)
+# plt.savefig('Ct_Cn_prop.pdf', format='pdf', dpi=1000)
 
 # Cq vs. r/R
 fig1 = plt.figure(figsize=(12, 6))
@@ -62,4 +60,4 @@ plt.grid()
 plt.xlabel('r/R', fontsize=20)
 plt.ylabel(r'$C_q$ [N]', fontsize=20)
 plt.legend(fontsize=20)
-plt.savefig('Cq_prop.pdf', format='pdf', dpi=1000)
+# plt.savefig('Cq_prop.pdf', format='pdf', dpi=1000)

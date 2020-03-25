@@ -12,11 +12,11 @@ def CTfunction(a, glauert = False):
     'glauert' defines if the Glauert correction for heavily loaded rotors should be used; default value is false
     """
     CT = np.zeros(np.shape(a))
-    CT = 4*a*(1-a)  
-    if glauert:
-        CT1=1.816;
-        a1=1-np.sqrt(CT1)/2;
-        CT[a>a1] = CT1-4*(np.sqrt(CT1)-1)*(1-a[a>a1])
+    CT = 4*a*(1+a)  
+    # if glauert:
+    #     CT1=1.816;
+    #     a1=1-np.sqrt(CT1)/2;
+    #     CT[a>a1] = CT1-4*(np.sqrt(CT1)-1)*(1-a[a>a1])
     
     return CT
      
@@ -29,7 +29,7 @@ def ainduction(CT):
     CT1=1.816;
     CT2=2*np.sqrt(CT1)-CT1
     a[CT>=CT2] = 1 + (CT[CT>=CT2]-CT1)/(4*(np.sqrt(CT1)-1))
-    a[CT<CT2] = 0.5-0.5*np.sqrt(1-CT[CT<CT2])
+    a[CT<CT2] = -0.5 + 0.5*np.sqrt(1-CT[CT<CT2])
     return a
 
 def PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, TSR, NBlades, axial_induction):
@@ -51,20 +51,14 @@ def loadBladeElement(vnorm, vtan, r_R, chord, twist, polar_alpha, polar_cl, pola
     calculates the load in the blade element
     """
     vmag2 = vnorm**2 + vtan**2
-    inflowangle = np.arctan(vnorm/vtan)
-    alpha = - inflowangle*180/np.pi + twist 
+    inflowangle = np.arctan2(vnorm,vtan)
+    alpha = - inflowangle*180/np.pi + twist
     cl = np.interp(alpha, polar_alpha, polar_cl)
     cd = np.interp(alpha, polar_alpha, polar_cd)
-    
-    # display('alpha/cl/cd')
-    # display(alpha)
-    # display(cl)
-    # display(cd)
-    
     lift = 0.5*vmag2*cl*chord
     drag = 0.5*vmag2*cd*chord
-    fnorm = lift*np.cos(inflowangle)+drag*np.sin(inflowangle)
-    ftan = lift*np.sin(inflowangle)-drag*np.cos(inflowangle)
+    fnorm = lift*np.cos(inflowangle)-drag*np.sin(inflowangle)
+    ftan = lift*np.sin(inflowangle)+drag*np.cos(inflowangle)
     gamma = 0.5*np.sqrt(vmag2)*cl*chord
     return fnorm , ftan, gamma, inflowangle*180/np.pi, alpha
 
@@ -85,16 +79,16 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
     a = 0.3 # axial induction
     aline = 0.0 # tangential induction factor
     
-    Niterations = 1e2
+    Niterations = 10**3
     count = 1
-    Erroriterations = 1e-6# error limit for iteration process, in absolute value of induction
+    Erroriterations = 1e-5# error limit for iteration process, in absolute value of induction
     conv = False
     while conv== False and count < Niterations:
         # ///////////////////////////////////////////////////////////////////////
         # // this is the block "Calculate velocity and loads at blade element"
         # ///////////////////////////////////////////////////////////////////////
-        Urotor = Uinf*(1-a) # axial velocity at rotor
-        Utan = (1+aline)*Omega*r_R*Radius # tangential velocity at rotor
+        Urotor = Uinf*(1+a) # axial velocity at rotor
+        Utan = (1-aline)*Omega*r_R*Radius # tangential velocity at rotor
         # calculate loads in blade segment in 2D (N/m)
         fnorm, ftan, gamma, inflowangle, alpha = loadBladeElement(Urotor, Utan, r_R,chord, twist, polar_alpha, polar_cl, polar_cd)
         load3Daxial =fnorm*Radius*(r2_R-r1_R)*NBlades # 3D force in axial direction
@@ -117,11 +111,11 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
         Prandtl, Prandtltip, Prandtlroot = PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, Omega*Radius/Uinf, NBlades, anew);
         if (Prandtl < 1e-4): 
             Prandtl = 1e-4 # avoid divide by zero
-        aline = ftan*NBlades/(2*np.pi*Uinf*(1-a)*Omega*2*(r_R*Radius)**2)
         anew = anew/Prandtl # correct estimate of axial induction
         a = 0.75*a+0.25*anew # for improving convergence, weigh current and previous iteration of axial induction
           
          # calculate aximuthal induction
+        aline = ftan*NBlades/(2*np.pi*Urotor*Omega*2*(r_R*Radius)**2)
         alin_new =aline/Prandtl # correct estimate of azimuthal induction with Prandtl's correction
         
         aline = 0.75*alin_new + 0.25*aline
@@ -149,7 +143,7 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
         count = count + 1
         #// test convergence of solution, by checking convergence of axial induction
         if (np.abs(a-anew) < Erroriterations): 
-            conv = True            
+            conv = True  
         
         fQ = ftan*r_R
     return [a , aline, r_R, fnorm , ftan, gamma, inflowangle, alpha, fQ]
@@ -161,7 +155,7 @@ def ExecuteBEM(N, plotter, mode = 'constant'):
         # define a as a range
         a = np.arange(-.5,1,.01)
         CTmom = CTfunction(a) # CT without correction
-        CTglauert = CTfunction(a, False) # CT with Glauert's correction
+        CTglauert = CTfunction(a, True) # CT with Glauert's correction
         a2 = ainduction(CTglauert)
         
         if plotter == True:
@@ -198,10 +192,7 @@ def ExecuteBEM(N, plotter, mode = 'constant'):
         polar_alpha = data1['alfa'][:]
         polar_cl = data1['cl'][:]
         polar_cd = data1['cd'][:]
-        # polar_alpha = np.flipud(-data1['alfa'][:])
-        # polar_cl = np.flipud(-data1['cl'][:])
-        # polar_cd = np.flipud(data1['cd'][:])
-
+            
         # plot polars of the airfoil C-alfa and Cl-Cd
         if plotter == True:
             fig, axs = plt.subplots(1, 2, figsize=(12, 6))
@@ -237,8 +228,9 @@ def ExecuteBEM(N, plotter, mode = 'constant'):
             # plt.title('Radial distribution')
         else:
             display('Please enter a valid distribution mode.')
-            
-        twist_distribution = (-50*(r_R)+35+46) # degrees
+        
+        col_pitch = 46
+        twist_distribution = (-50*(r_R)+35+col_pitch) # degrees
         chord_distribution = 0.18-0.06*(r_R) # meters
         
         # Operational specs
