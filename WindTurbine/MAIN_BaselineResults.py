@@ -8,9 +8,9 @@ N = 100 # annulus spacing
 mode = 'constant' # 2 possible modes: constant and cosinus distribution of annulus. 
                   # Write 'cosinus' or 'constant' if you want to change the distribution.
 plotter = False # If you don't want to plot all the default plots please enter False
+TSR = [6, 8, 10]
 [results, CT, CP, Uinf, Radius] = BEM.ExecuteBEM(N, plotter, mode, TSR[0])
 
-TSR = [6, 8, 10]
 alpha = np.zeros([len(results[:,0]),3])
 a = np.zeros([len(results[:,0]),3])
 ap = np.zeros([len(results[:,0]),3])
