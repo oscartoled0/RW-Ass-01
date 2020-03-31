@@ -99,6 +99,8 @@ def ExecuteBEM_opt(N, Variables):
     r_R = np.zeros(r.size-1)
     vmag2 = np.zeros(r.size-1)
     CTd = np.zeros(r.size-1)
+    lift = np.zeros(r.size-1)
+
 
     for i in range(r.size-1):
         
@@ -118,21 +120,35 @@ def ExecuteBEM_opt(N, Variables):
         CTd[i]=CTfunction(a[i], glauert = True)
         
         vnorm = Uinf*(1-a[i])
-        vtan = (1+aline[i])*Omega*r_R[i]*Radius # tangential velocity at rotor
-        phi[i] = np.arctan2(vnorm,vtan)
         
-        # Now the optimum twist can be derived from the inflow angle for a_opt and alpha for E_max:
-        twist[i] = alpha_E - phi[i]*180/np.pi
-        
-        # Now we calculate the aerodynamic forces in the blade in order to derive the optimum chord
-        fnorm[i] = CTd[i]*(0.5*Area*Uinf**2)/(Radius*(r[i+1]-r[i])*NBlades)
-        vmag2[i] = vnorm**2 + vtan**2
-        chord[i] = fnorm[i]/(0.5*vmag2[i]*(cl_E*m.cos(phi[i]) + cd_E*m.sin(phi[i])))
-        ftan[i] = 0.5*vmag2[i]*chord[i]*(cl_E*np.sin(phi[i])-cd_E*np.cos(phi[i]))
-        gamma[i] = 0.5*np.sqrt(vmag2[i])*cl_E*chord[i]
+        stop = False
+        while stop == False:
+            vtan = (1+aline[i])*Omega*r_R[i]*Radius # tangential velocity at rotor
+            phi[i] = np.arctan2(vnorm,vtan)
+            
+            # Now the optimum twist can be derived from the inflow angle for a_opt and alpha for E_max:
+            twist[i] = alpha_E - phi[i]*180/np.pi
+            
+            # Now we calculate the aerodynamic forces in the blade in order to derive the optimum chord
+            fnorm[i] = CTd[i]*(0.5*Area*Uinf**2)/(Radius*(r[i+1]-r[i])*NBlades)
+            vmag2[i] = vnorm**2 + vtan**2
+            chord[i] = fnorm[i]/(0.5*vmag2[i]*(cl_E*m.cos(phi[i]) + cd_E*m.sin(phi[i])))
+            ftan[i] = 0.5*vmag2[i]*chord[i]*(cl_E*np.sin(phi[i])-cd_E*np.cos(phi[i]))
+            gamma[i] = 0.5*np.sqrt(vmag2[i])*cl_E*chord[i]
+            lift[i] = 0.5*vmag2[i]*chord[i]*Radius*(r[i+1]-r[i])*cl_E
+            
+            aline_new = ftan[i]*NBlades/(2*np.pi*Uinf*(1-a[i])*Omega*2*(r_R[i]*Radius)**2)
+            aline_new = aline_new/Prandtl # correct estimate of azimuthal induction with Prandtl's correction
+    
+            if (abs(aline_new-aline[i])<0.003):
+                stop = True
+#                display(stop)
+            else:
+#                display(abs(aline_new-aline[i]))
+                aline[i] = aline_new                
         
     dr = (r[1:]-r[:-1])*Radius
     CP = np.sum(dr*ftan*r_R*NBlades*Radius*Omega/(0.5*Uinf**3*np.pi*Radius**2))   
     CT = np.sum(dr*fnorm*NBlades/(0.5*Uinf**2*np.pi*Radius**2))
 
-    return[CP, CT, fnorm, ftan, gamma, chord, twist, r_R, phi, a, aline, vmag2]
+    return[CP, CT, fnorm, ftan, gamma, chord, twist, r_R, phi, a, aline, vmag2, lift, r]

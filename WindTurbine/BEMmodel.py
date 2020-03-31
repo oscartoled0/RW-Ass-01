@@ -172,9 +172,9 @@ def ExecuteBEM(N, plotter, mode, TSR):
             plt.savefig('Glauert.pdf', format='pdf', dpi=1000)
         
         """ 2. plot Prandtl tip, root and combined correction for a number of blades and induction 'a', over the non-dimensioned radius """
-        r_R = np.arange(0.1, 1, .01)
+        r_R = np.arange(0.2, 1, .01)
         a = np.zeros(np.shape(r_R))+0.3
-        Prandtl, Prandtltip, Prandtlroot = PrandtlTipRootCorrection(r_R, 0.1, 1, 7, 3, a)
+        Prandtl, Prandtltip, Prandtlroot = PrandtlTipRootCorrection(r_R, 0.2, 1, 7, 3, a)
         
         if plotter == True:
             fig1 = plt.figure(figsize=(12, 6))
