@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import BEM_Opt as BEM_Opt
+import BEMmodel as BEM
 
 """ ---- Code variables ---- """
 N = 100 # annulus spacing
@@ -41,12 +42,20 @@ while (finish==False):
         if (count/100-np.int(count/100) == 0):
             display(CT-CT0)
         
+"""" Baseline case """
+mode = 'constant' # 2 possible modes: constant and cosinus distribution of annulus. 
+                  # Write 'cosinus' or 'constant' if you want to change the distribution.
+plotter = False # If you don't want to plot all the default plots please enter False
+
+[results, CT, CP, Uinf, Radius] = BEM.ExecuteBEM(N, plotter, mode)
+        
 """ Plotter """
 
-# Chord distribution
+c_ba = (0.18-0.06*(r_R))*Radius # meters
 fig1 = plt.figure(figsize=(12, 6))
 # plt.title(r'Chord distribution in Propeller', fontsize=20)
-plt.plot(r_R, chord, 'r-')
+plt.plot(r_R,c_ba, 'k-', label=r'Baseline')
+plt.plot(r_R, chord, 'r-', label=r'$Opt.$')
 plt.grid()
 plt.tick_params(axis='x', which='major', labelsize=20)
 plt.tick_params(axis='y', which='major', labelsize=20)
@@ -55,9 +64,13 @@ plt.ylabel(r'$c(r/R)$ [m]', fontsize=20)
 plt.savefig('Chord_distrib_PR.pdf', format='pdf', dpi=1000)
 
 # Twist distribution
+# Chord distribution
+col_pitch = 46
+t_ba = (-50*(r_R)+35+col_pitch) # degrees
 fig1 = plt.figure(figsize=(12, 6))
 # plt.title(r'Twist distribution in Propeller', fontsize=20)
-plt.plot(r_R, twist, 'r-')
+plt.plot(r_R,t_ba, 'k-', label=r'Baseline')
+plt.plot(r_R, twist, 'r-', label=r'Opt.')
 plt.grid()
 plt.tick_params(axis='x', which='major', labelsize=20)
 plt.tick_params(axis='y', which='major', labelsize=20)
@@ -68,7 +81,8 @@ plt.savefig('Twist_distrib_PR.pdf', format='pdf', dpi=1000)
 # Fnorm distribution
 fig1 = plt.figure(figsize=(12, 6))
 # plt.title(r'Normal force distribution in Propeller', fontsize=20)
-plt.plot(r_R, fnorm, 'r-')
+plt.plot(results[:,2], results[:,3]/(0.5*Uinf**2*Radius), 'k-', label=r'$Baseline$')
+plt.plot(r_R, fnorm/(0.5*Uinf**2*Radius), 'r-', label=r'Opt.')
 plt.grid()
 plt.tick_params(axis='x', which='major', labelsize=20)
 plt.tick_params(axis='y', which='major', labelsize=20)
@@ -79,7 +93,8 @@ plt.savefig('fnorm_distrib_PR.pdf', format='pdf', dpi=1000)
 # Circulation distribution
 fig1 = plt.figure(figsize=(12, 6))
 # plt.title(r'Circulation distribution in Propeller', fontsize=20)
-plt.plot(r_R, gamma, 'r-')
+plt.plot(results[:,2], results[:,5]/(np.pi*Uinf**2/(NB*Uinf*TSR/Radius)), 'k-', label=r'Baseline')
+plt.plot(r_R, gamma/(np.pi*Uinf**2/(NB*Uinf*TSR/Radius)), 'r-', label=r'Opt.')
 plt.grid()
 plt.tick_params(axis='x', which='major', labelsize=20)
 plt.tick_params(axis='y', which='major', labelsize=20)
@@ -87,16 +102,6 @@ plt.xlabel('r/R', fontsize=20)
 plt.ylabel(r'$\Gamma(r/R)$ [1/s]', fontsize=20)
 plt.savefig('Gamma_PR.pdf', format='pdf', dpi=1000)
 
-# Inflow angle distribution
-fig1 = plt.figure(figsize=(12, 6))
-# plt.title(r'Inflow distribution in Propeller', fontsize=20)
-plt.plot(r_R, a, 'r-')
-plt.grid()
-plt.tick_params(axis='x', which='major', labelsize=20)
-plt.tick_params(axis='y', which='major', labelsize=20)
-plt.xlabel('r/R', fontsize=20)
-plt.ylabel(r'$a(r/R)$ [1/s]', fontsize=20)
-plt.savefig('a_PR.pdf', format='pdf', dpi=1000)
 
 
     

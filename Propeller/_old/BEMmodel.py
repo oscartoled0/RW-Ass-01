@@ -12,11 +12,11 @@ def CTfunction(a, glauert = False):
     'glauert' defines if the Glauert correction for heavily loaded rotors should be used; default value is false
     """
     CT = np.zeros(np.shape(a))
-    CT = 4*a*(1-a)  
-    if glauert:
-        CT1=1.816;
-        a1=1-np.sqrt(CT1)/2;
-        CT[a>a1] = CT1-4*(np.sqrt(CT1)-1)*(1-a[a>a1])
+    CT = 4*a*(1+a)  
+    # if glauert:
+    #     CT1=1.816;
+    #     a1=1-np.sqrt(CT1)/2;
+    #     CT[a>a1] = CT1-4*(np.sqrt(CT1)-1)*(1-a[a>a1])
     
     return CT
      
@@ -28,9 +28,8 @@ def ainduction(CT):
     a = np.zeros(np.shape(CT))
     CT1=1.816;
     CT2=2*np.sqrt(CT1)-CT1
-    a[CT>=CT2] = 1 + (CT1-CT[CT>=CT2])/(4*(np.sqrt(CT1)-1))
-    a[CT<CT2] = 0.5 - 0.5*np.sqrt(1-CT[CT<CT2])
-    
+    a[CT>=CT2] = 1 + (CT[CT>=CT2]-CT1)/(4*(np.sqrt(CT1)-1))
+    a[CT<CT2] = -0.5 + 0.5*np.sqrt(1-CT[CT<CT2])
     return a
 
 def PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, TSR, NBlades, axial_induction):
@@ -38,10 +37,10 @@ def PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, TSR, NBlades, axial
     This function calcualte steh combined tip and root Prandtl correction at agiven radial position 'r_R' (non-dimensioned by rotor radius), 
     given a root and tip radius (also non-dimensioned), a tip speed ratio TSR, the number lf blades NBlades and the axial induction factor
     """
-    temp1 = -NBlades/2*(tipradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1+axial_induction)**2))
+    temp1 = -NBlades/2*(tipradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1-axial_induction)**2))
     Ftip = np.array(2/np.pi*np.arccos(np.exp(temp1)))
     Ftip[np.isnan(Ftip)] = 0
-    temp1 = NBlades/2*(rootradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1+axial_induction)**2))
+    temp1 = NBlades/2*(rootradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1-axial_induction)**2))
     Froot = np.array(2/np.pi*np.arccos(np.exp(temp1)))
     Froot[np.isnan(Froot)] = 0
     return Froot*Ftip, Ftip, Froot
@@ -52,16 +51,10 @@ def loadBladeElement(vnorm, vtan, r_R, chord, twist, polar_alpha, polar_cl, pola
     calculates the load in the blade element
     """
     vmag2 = vnorm**2 + vtan**2
-    inflowangle = np.arctan(vnorm/vtan)
-    alpha = - inflowangle*180/np.pi + twist 
+    inflowangle = np.arctan2(vnorm,vtan)
+    alpha = - inflowangle*180/np.pi + twist
     cl = np.interp(alpha, polar_alpha, polar_cl)
     cd = np.interp(alpha, polar_alpha, polar_cd)
-    
-    # display('alpha/cl/cd')
-    # display(alpha)
-    # display(cl)
-    # display(cd)
-    
     lift = 0.5*vmag2*cl*chord
     drag = 0.5*vmag2*cd*chord
     fnorm = lift*np.cos(inflowangle)-drag*np.sin(inflowangle)
@@ -83,16 +76,13 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
     Area = np.pi*((r2_R*Radius)**2-(r1_R*Radius)**2) #  area streamtube
     r_R = (r1_R+r2_R)/2 # centroide
     # initiatlize variables
-    a = 0.5 # axial induction
-    aline = 0.5 # tangential induction factor
+    a = 0.3 # axial induction
+    aline = 0.0 # tangential induction factor
     
-    Niterations = 100
+    Niterations = 10**3
     count = 1
-    Erroriterations = 1e-6# error limit for iteration process, in absolute value of induction
+    Erroriterations = 1e-5# error limit for iteration process, in absolute value of induction
     conv = False
-    
-    a_hist = np.zeros(Niterations)
-    x_co = np.zeros(Niterations)
     while conv== False and count < Niterations:
         # ///////////////////////////////////////////////////////////////////////
         # // this is the block "Calculate velocity and loads at blade element"
@@ -121,11 +111,11 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
         Prandtl, Prandtltip, Prandtlroot = PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, Omega*Radius/Uinf, NBlades, anew);
         if (Prandtl < 1e-4): 
             Prandtl = 1e-4 # avoid divide by zero
-        aline = ftan*NBlades/(2*np.pi*Uinf*(1+a)*Omega*2*(r_R*Radius)**2)
         anew = anew/Prandtl # correct estimate of axial induction
         a = 0.75*a+0.25*anew # for improving convergence, weigh current and previous iteration of axial induction
           
          # calculate aximuthal induction
+        aline = ftan*NBlades/(2*np.pi*Urotor*Omega*2*(r_R*Radius)**2)
         alin_new =aline/Prandtl # correct estimate of azimuthal induction with Prandtl's correction
         
         aline = 0.75*alin_new + 0.25*aline
@@ -141,34 +131,19 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
             
         if aline > 0.95:
             aline = 0.95
-        elif aline < -0.95:
-            aline = -0.95
+        elif aline < 0:
+            aline = 0
             
         # if r_R == (r_root+r_root2)/2:
         #     display('a/at/Pr')
         #     display(a)
         #     display(aline)
         #     display(fnorm)
-        a_hist[count] = a
-        x_co[count] = count
+            
         count = count + 1
-        
         #// test convergence of solution, by checking convergence of axial induction
         if (np.abs(a-anew) < Erroriterations): 
-            conv = True        
-            
-            # a_hist = np.trim_zeros(a_hist)
-            # x_co = np.trim_zeros(x_co)
-            # if (r1_R>(0.75-0.01) and r1_R<(0.75+0.01)):
-            #     fig1 = plt.figure(figsize=(12, 6))
-            #     plt.plot(x_co, a_hist, 'r-', label='a')
-            #     plt.tick_params(axis='x', which='major', labelsize=20)
-            #     plt.tick_params(axis='y', which='major', labelsize=20)
-            #     plt.xlabel('Iterations', fontsize=20)
-            #     plt.ylabel('a', fontsize=20)
-            #     plt.legend(fontsize=20)
-            #     plt.grid()
-            #     plt.savefig('a_histPR.pdf', format='pdf', dpi=1000)
+            conv = True  
         
         fQ = ftan*r_R
     return [a , aline, r_R, fnorm , ftan, gamma, inflowangle, alpha, fQ]
@@ -180,38 +155,34 @@ def ExecuteBEM(N, plotter, mode = 'constant'):
         # define a as a range
         a = np.arange(-.5,1,.01)
         CTmom = CTfunction(a) # CT without correction
-        CTglauert = CTfunction(a, False) # CT with Glauert's correction
+        CTglauert = CTfunction(a, True) # CT with Glauert's correction
         a2 = ainduction(CTglauert)
         
-        # if plotter == True:
-            # fig1 = plt.figure(figsize=(12, 6))
-            # plt.plot(a, CTmom, 'k-', label='$C_T$')
-            # plt.plot(a, CTglauert, 'b--', label='$C_T$ Glauert')
-            # plt.plot(a, CTglauert*(1-a), 'g--', label='$C_P$ Glauert')
-            # plt.xlabel('a', fontsize=20)
-            # plt.ylabel(r'$C_T$ and $C_P$', fontsize=20)
-            # plt.grid()
-            # plt.tick_params(axis='x', which='major', labelsize=20)
-            # plt.tick_params(axis='y', which='major', labelsize=20)
-            # plt.legend(fontsize=20)
-            # plt.savefig('Glauert.pdf', format='pdf', dpi=1000)
+        if plotter == True:
+            fig1 = plt.figure(figsize=(12, 6))
+            plt.plot(a, CTmom, 'k-', label='$C_T$')
+            plt.plot(a, CTglauert, 'b--', label='$C_T$ Glauert')
+            plt.plot(a, CTglauert*(1-a), 'g--', label='$C_P$ Glauert')
+            plt.xlabel('a', fontsize=20)
+            plt.ylabel(r'$C_T$ and $C_P$', fontsize=20)
+            plt.grid()
+            plt.legend(fontsize=20)
+            plt.savefig('Glauert.pdf', format='pdf', dpi=1000)
         
         """ 2. plot Prandtl tip, root and combined correction for a number of blades and induction 'a', over the non-dimensioned radius """
         r_R = np.arange(0.1, 1, .01)
         a = np.zeros(np.shape(r_R))+0.3
         Prandtl, Prandtltip, Prandtlroot = PrandtlTipRootCorrection(r_R, 0.1, 1, 7, 3, a)
         
-        # if plotter == True:
-            # fig1 = plt.figure(figsize=(12, 6))
-            # plt.plot(r_R, Prandtl, 'r-', label='Prandtl')
-            # plt.plot(r_R, Prandtltip, 'g.', label='Prandtl tip')
-            # plt.plot(r_R, Prandtlroot, 'b.', label='Prandtl root')
-            # plt.xlabel('r/R', fontsize=20)
-            # plt.legend(fontsize=20)
-            # plt.grid()
-            # plt.tick_params(axis='x', which='major', labelsize=20)
-            # plt.tick_params(axis='y', which='major', labelsize=20)
-            # plt.savefig('Prandtl.pdf', format='pdf', dpi=1000)
+        if plotter == True:
+            fig1 = plt.figure(figsize=(12, 6))
+            plt.plot(r_R, Prandtl, 'r-', label='Prandtl')
+            plt.plot(r_R, Prandtltip, 'g.', label='Prandtl tip')
+            plt.plot(r_R, Prandtlroot, 'b.', label='Prandtl root')
+            plt.xlabel('r/R', fontsize=20)
+            plt.legend(fontsize=20)
+            plt.grid()
+            plt.savefig('Prandtl.pdf', format='pdf', dpi=1000)
 
         """ 3. import polar """
         # Propeller case
@@ -221,25 +192,20 @@ def ExecuteBEM(N, plotter, mode = 'constant'):
         polar_alpha = data1['alfa'][:]
         polar_cl = data1['cl'][:]
         polar_cd = data1['cd'][:]
-        # polar_alpha = np.flipud(-data1['alfa'][:])
-        # polar_cl = np.flipud(-data1['cl'][:])
-        # polar_cd = np.flipud(data1['cd'][:])
-
+            
         # plot polars of the airfoil C-alfa and Cl-Cd
-        # if plotter == True:
-            # fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-            # axs[0].plot(polar_alpha, polar_cl)
-            # axs[0].set_xlim([-30,30])
-            # axs[0].set_xlabel(r'$\alpha$',fontsize=20)
-            # axs[0].set_ylabel(r'$C_l$',fontsize=20)
-            # axs[0].grid()
-            # plt.tick_params(axis='x', which='major', labelsize=20)
-            # plt.tick_params(axis='y', which='major', labelsize=20)
-            # axs[1].plot(polar_cd, polar_cl)
-            # axs[1].set_xlim([0,.1])
-            # axs[1].set_xlabel(r'$C_d$',fontsize=20)
-            # axs[1].grid()
-            # plt.savefig('Polar_prop.pdf', format='pdf', dpi=1000)
+        if plotter == True:
+            fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+            axs[0].plot(polar_alpha, polar_cl)
+            axs[0].set_xlim([-30,30])
+            axs[0].set_xlabel(r'$\alpha$',fontsize=20)
+            axs[0].set_ylabel(r'$C_l$',fontsize=20)
+            axs[0].grid()
+            axs[1].plot(polar_cd, polar_cl)
+            axs[1].set_xlim([0,.1])
+            axs[1].set_xlabel(r'$C_d$',fontsize=20)
+            axs[1].grid()
+            plt.savefig('Polar_prop.pdf', format='pdf', dpi=1000)
 
             
         """ 4. Define the blade geometry """
@@ -265,7 +231,7 @@ def ExecuteBEM(N, plotter, mode = 'constant'):
         
         col_pitch = 46
         twist_distribution = (-50*(r_R)+35+col_pitch) # degrees
-        chord_distribution = (0.18-0.06*(r_R))*Radius # meters
+        chord_distribution = 0.18-0.06*(r_R) # meters
         
         # Operational specs
         Uinf = 60 # unperturbed wind speed in m/s
@@ -300,39 +266,32 @@ def ExecuteBEM(N, plotter, mode = 'constant'):
             print("CT is ", CT)
             print("CP is ", CP)    
             
-            # fig1 = plt.figure(figsize=(12, 6))
-            # plt.title('Axial and tangential induction')
-            # plt.plot(results[:,2], results[:,0], 'r-', label=r'$a$')
-            # plt.plot(results[:,2], results[:,1], 'g--', label=r'$a^,$')
-            # plt.grid()
-            # plt.tick_params(axis='x', which='major', labelsize=20)
-            # plt.tick_params(axis='y', which='major', labelsize=20)
-            # plt.xlabel('r/R')
-            # plt.legend()
-            # plt.show()
+            fig1 = plt.figure(figsize=(12, 6))
+            plt.title('Axial and tangential induction')
+            plt.plot(results[:,2], results[:,0], 'r-', label=r'$a$')
+            plt.plot(results[:,2], results[:,1], 'g--', label=r'$a^,$')
+            plt.grid()
+            plt.xlabel('r/R')
+            plt.legend()
+            plt.show()
             
-            # fig1 = plt.figure(figsize=(12, 6))
-            # plt.title(r'Normal and tagential force, non-dimensioned by $\frac{1}{2} \rho U_\infty^2 R$')
-            # plt.plot(results[:,2], results[:,3]/(0.5*Uinf**2*Radius), 'r-', label=r'Fnorm')
-            # plt.plot(results[:,2], results[:,4]/(0.5*Uinf**2*Radius), 'g--', label=r'Ftan')
-            # plt.grid()
-            # plt.tick_params(axis='x', which='major', labelsize=20)
-            # plt.tick_params(axis='y', which='major', labelsize=20)
-            # plt.xlabel('r/R')
-            # plt.legend()
-            # plt.show()
+            fig1 = plt.figure(figsize=(12, 6))
+            plt.title(r'Normal and tagential force, non-dimensioned by $\frac{1}{2} \rho U_\infty^2 R$')
+            plt.plot(results[:,2], results[:,3]/(0.5*Uinf**2*Radius), 'r-', label=r'Fnorm')
+            plt.plot(results[:,2], results[:,4]/(0.5*Uinf**2*Radius), 'g--', label=r'Ftan')
+            plt.grid()
+            plt.xlabel('r/R')
+            plt.legend()
+            plt.show()
             
             
             fig1 = plt.figure(figsize=(12, 6))
-            # plt.title(r'Circulation distribution, non-dimensioned by $\frac{\pi U_\infty^2}{\Omega * NBlades } $')
+            plt.title(r'Circulation distribution, non-dimensioned by $\frac{\pi U_\infty^2}{\Omega * NBlades } $')
             plt.plot(results[:,2], results[:,5]/(np.pi*Uinf**2/(NBlades*Omega)), 'r-', label=r'$\Gamma$')
             plt.grid()
             plt.xlabel('r/R')
-            plt.ylabel(r'$\Gamma$')
-            plt.tick_params(axis='x', which='major', labelsize=20)
-            plt.tick_params(axis='y', which='major', labelsize=20)
             plt.legend()
-            plt.savefig('Gamma_prop_Res.pdf', format='pdf', dpi=1000)
-                    
+            plt.show()
+        
         return[results, CT, CP, Uinf, Radius]
         

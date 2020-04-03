@@ -7,7 +7,7 @@ import BEMmodel as BEM
 N = 100 # annulus spacing
 mode = 'constant' # 2 possible modes: constant and cosinus distribution of annulus. 
                   # Write 'cosinus' or 'constant' if you want to change the distribution.
-plotter = True # If you don't want to plot all the default plots please enter False
+plotter = False # If you don't want to plot all the default plots please enter False
 
 TSR = [6, 8, 10]
 

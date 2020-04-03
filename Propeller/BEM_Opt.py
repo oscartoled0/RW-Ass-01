@@ -30,9 +30,9 @@ def ainduction(CT):
     CT1=1.816;
     CT2=2*np.sqrt(CT1)-CT1
     if CT>=CT2:
-        a = 1 + (CT-CT1)/(4*(np.sqrt(CT1)-1))
+        a = - 1 + (CT1-CT)/(4*(np.sqrt(CT1)-1))
     elif CT<CT2:
-        a = 0.5-0.5*np.sqrt(1-CT)
+        a = 0.5 - 0.5*np.sqrt(1-CT)
         
     return a
 
@@ -41,10 +41,10 @@ def PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, TSR, NBlades, axial
     This function calcualte steh combined tip and root Prandtl correction at agiven radial position 'r_R' (non-dimensioned by rotor radius), 
     given a root and tip radius (also non-dimensioned), a tip speed ratio TSR, the number lf blades NBlades and the axial induction factor
     """
-    temp1 = -NBlades/2*(tipradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1-axial_induction)**2))
+    temp1 = -NBlades/2*(tipradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1+axial_induction)**2))
     Ftip = np.array(2/np.pi*np.arccos(np.exp(temp1)))
     Ftip[np.isnan(Ftip)] = 0
-    temp1 = NBlades/2*(rootradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1-axial_induction)**2))
+    temp1 = NBlades/2*(rootradius_R-r_R)/r_R*np.sqrt( 1+ ((TSR*r_R)**2)/((1+axial_induction)**2))
     Froot = np.array(2/np.pi*np.arccos(np.exp(temp1)))
     Froot[np.isnan(Froot)] = 0
     return Froot*Ftip, Ftip, Froot
@@ -80,11 +80,13 @@ def ExecuteBEM_opt(N, Variables):
     
     delta_r_R = 1/N
     
-    NBlades = Variables[0]
-    Radius = Variables[1]
-    Uinf = Variables[2]
+    CT = Variables[0]
+    NBlades = Variables[1]
+    Radius = Variables[2]
+    Uinf = Variables[3]
     TSR = Variables[4]
-    Omega = Variables[4]
+    Omega = Variables[5]
+    
     r = np.arange(0.25, 1+delta_r_R/2, delta_r_R)
         
     """ CONSTRUCT OPTIMIZED BLADE """
@@ -100,34 +102,37 @@ def ExecuteBEM_opt(N, Variables):
     gamma = np.zeros(r.size-1)
     r_R = np.zeros(r.size-1)
     vmag2 = np.zeros(r.size-1)
-
+    
     for i in range(r.size-1):
         
         r_R[i] = (r[i]+r[i+1])/2
         Area = np.pi*((r[i+1]*Radius)**2-(r[i]*Radius)**2)
         
-        a[i] = 1/3 # Betz limit
-        CT = CTfunction(a[i], True)
+        a[i] = ainduction(CT)
+        # display(a[i])
             
         Prandtl, Prandtltip, Prandtlroot = PrandtlTipRootCorrection(r_R[i], r[0], r[-1], Omega*Radius/Uinf, NBlades, a[i]);
         if (Prandtl < 1e-4): 
             Prandtl = 1e-4 # avoid divide by zero
         a[i] = a[i]/Prandtl
+        
         if a[i]>0.95: # a cannot be larger than 0.95 because if not reverse flow
             a[i] = 0.95
+        elif a[i] < 0:
+            a[i] = 0
             
-        CTd=CTfunction(a, glauert = False)
+        CTd=CTfunction(a[i], glauert = False)
         
-        aline[i] = a[i]*(1-a[i])/(TSR**2*r_R[i]**2)
-        vnorm = Uinf*(1-a[i])
-        vtan = (1+aline[i])*Omega*r_R[i]*Radius # tangential velocity at rotor
+        aline[i] = a[i]*(1+a[i])/(TSR**2*r_R[i]**2)
+        vnorm = Uinf*(1+a[i])
+        vtan = (1-aline[i])*Omega*r_R[i]*Radius # tangential velocity at rotor
         phi[i] = np.arctan2(vnorm,vtan)
         
         # Now the optimum twist can be derived from the inflow angle for a_opt and alpha for E_max:
         twist[i] = alpha_E + phi[i]*180/np.pi
         
         # Now we calculate the aerodynamic forces in the blade in order to derive the optimum chord
-        fnorm[i] = CTd[i]*(0.5*Area*Uinf**2)/(Radius*(r[i+1]-r[i])*NBlades)
+        fnorm[i] = CTd*(0.5*Area*Uinf**2)/(Radius*(r[i+1]-r[i])*NBlades)
         vmag2[i] = vnorm**2 + vtan**2
         chord[i] = fnorm[i]/(0.5*vmag2[i]*(cl_E*m.cos(phi[i]) + cd_E*m.sin(phi[i])))
         ftan[i] = 0.5*vmag2[i]*chord[i]*(cl_E*np.sin(phi[i])-cd_E*np.cos(phi[i]))
