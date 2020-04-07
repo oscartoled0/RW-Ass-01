@@ -79,14 +79,10 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
     a = 0.6 # axial induction
     aline = 0.0 # tangential induction factor
     
-    Niterations = 10**2
+    Niterations = 10**5
     count = 1
     Erroriterations = 1e-5# error limit for iteration process, in absolute value of induction
     conv = False
-    
-    a_hist = np.zeros(Niterations)
-    x_co = np.zeros(Niterations)
-
     while conv== False and count < Niterations:
         # ///////////////////////////////////////////////////////////////////////
         # // this is the block "Calculate velocity and loads at blade element"
@@ -128,45 +124,28 @@ def solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , Omega, Radius,
         # ///////////////////////////////////////////////////////////////////////
         
         # Avoid stack overflows
-        if a > 0.95:
-            a = 0.95
-        elif a < 0:
-            a = 0
-            
-        if aline > 0.95:
-            aline = 0.95
-        elif aline < 0:
-            aline = 0
+#        if a > 0.95:
+#            a = 0.95
+#        elif a < 0:
+#            a = 0
+#            
+#        if aline > 0.95:
+#            aline = 0.95
+#        elif aline < 0:
+#            aline = 0
             
         # if r_R == (r_root+r_root2)/2:
         #     display('a/at/Pr')
         #     display(a)
         #     display(aline)
         #     display(fnorm)
-        
-        a_hist[count] = a
-        x_co[count] = count
+            
         count = count + 1
-        
         #// test convergence of solution, by checking convergence of axial induction
         if (np.abs(a-anew) < Erroriterations): 
-            conv = True      
-            
-            # a_hist = np.trim_zeros(a_hist)
-            # x_co = np.trim_zeros(x_co)
-            # if (r1_R>(0.75-0.01) and r1_R<(0.75+0.01)):
-            #     fig1 = plt.figure(figsize=(12, 6))
-            #     plt.plot(x_co, a_hist, 'r-', label='a')
-            #     plt.tick_params(axis='x', which='major', labelsize=20)
-            #     plt.tick_params(axis='y', which='major', labelsize=20)
-            #     plt.xlabel('Iterations', fontsize=20)
-            #     plt.ylabel('a', fontsize=20)
-            #     plt.legend(fontsize=20)
-            #     plt.grid()
-            #     plt.savefig('a_histWT.pdf', format='pdf', dpi=1000)
-        fQ = ftan*r_R
+            conv = True             
         
-            
+        fQ = ftan*r_R
     return [a , aline, r_R, fnorm , ftan, gamma, inflowangle, alpha, fQ]
 
 """ ------- Sections ------- """
@@ -255,7 +234,7 @@ def ExecuteBEM(N, plotter, mode, TSR):
         else:
             display('Please enter a valid distribution mode.')
 
-        pitch = 2 # degrees
+        pitch = -25 # degrees
         twist_distribution = -14*(1-r_R)+pitch # degrees
         chord_distribution = 3*(1-r_R)+1 # meters
         
@@ -268,8 +247,8 @@ def ExecuteBEM(N, plotter, mode, TSR):
             chord = np.interp((r_R[i]+r_R[i+1])/2, r_R, chord_distribution)
             twist = np.interp((r_R[i]+r_R[i+1])/2, r_R, twist_distribution)
             
-            results[i,:] = solveStreamtube(Uinf, r_R[i], r_R[i+1], r_R[0], r_R[-1] , Omega, Radius, NBlades, chord, twist, polar_alpha, polar_cl, polar_cd, r_R[0], r_R[1])
-        
+            results[i,:] = solveStreamtube(Uinf, r_R[i], r_R[i+1], r_R[0], r_R[-1] , Omega, Radius, NBlades, chord, twist, polar_alpha, polar_cl, polar_cd, r_R[0], r_R[1] )
+            
         """ 5. Plot results """
         
         # # To avoid INF in forces calculation

@@ -143,17 +143,25 @@ plt.legend(fontsize=20)
 plt.savefig('a_WT.pdf', format='pdf', dpi=1000)
 
 # Enthalpy
-Uw = Uinf*(1-2*a[:,1])
-Ud = Uinf*(1-a[:,1])
+Uw = np.zeros(a[:,1].size)
+Ud = np.zeros(a[:,1].size)
+
+for i in range(a[:,1].size):
+    Uw[i] = m.sqrt((Uinf*(1-2*a[i,1]))**2 + (TSR[1]*Uinf*r_R[i]*aline[i,1])**2)
+    Ud[i] = m.sqrt((Uinf*(1-a[i,1]))**2 + (TSR[1]*Uinf*r_R[i]*aline[i,1])**2)
+    
+Uw2 = Uinf*(1-2*a[:,1])
+Ud2 = Uinf*(1-a[:,1])
+    
 Hinf = np.zeros(len(Uw))
 H1mas = np.zeros(len(Uw))
 H1menos = np.zeros(len(Uw))
 Hminf = np.zeros(len(Uw))
 for i in range(len(Uw)):
-    Hinf[i] = pinf + 0.5*rho*Uinf**2
-    H1mas[i] = pinf + 0.5*rho*(Uinf**2-Ud[i]**2) + 0.5*rho*Ud[i]**2
-    H1menos[i] = pinf + 0.5*rho*Uw[i]**2
-    Hminf[i] = pinf + 0.5*rho*Uw[i]**2
+    Hinf[i] = pinf/rho + 0.5*Uinf**2
+    H1mas[i] = pinf/rho + 0.5*Uinf**2
+    H1menos[i] = pinf/rho + 0.5*Uw[i]**2
+    Hminf[i] = pinf/rho + 0.5*Uw[i]**2
 
 r_inft = np.zeros(len(r_ext))    
 r_minft = np.zeros(len(r_ext))  
@@ -162,20 +170,21 @@ r_Rminft = np.zeros(len(r_R))
 r_inft[0] = r_ext[0]  
 r_minft[0] = r_ext[0]  
 for i in range(1,len(r_ext)):
-    r_inft[i] = m.sqrt(((r_ext[i]**2-r_ext[i-1]**2)*Ud[i-1]/(Uinf)) + r_inft[i-1]**2)
-    r_minft[i] = m.sqrt(((r_ext[i]**2-r_ext[i-1]**2)*Ud[i-1]/(abs(Uw[i-1]))) + r_minft[i-1]**2)
+    r_inft[i] = m.sqrt(((r_ext[i]**2-r_ext[i-1]**2)*Ud2[i-1]/(Uinf)) + r_inft[i-1]**2)
+    r_minft[i] = m.sqrt(((r_ext[i]**2-r_ext[i-1]**2)*Ud2[i-1]/(abs(Uw2[i-1]))) + r_minft[i-1]**2)
     r_Rinft[i-1] = (r_inft[i] + r_inft[i-1])/2
     r_Rminft[i-1] = (r_minft[i] + r_minft[i-1])/2
 
 fig1 = plt.figure(figsize=(18, 8))
-plt.plot((Hinf+100)/1000, r_Rinft, 'c-', label = r'$x/x_d=\infty$')
+plt.plot((Hinf + 100)/1000, r_Rinft, 'c-', label = r'$x/x_d=\infty$')
 plt.plot(H1mas/1000, r_R, 'b-', label = r'$x/x_d=1^+$')
 plt.plot(H1menos/1000, r_R, 'g-', label = r'$x/x_d=1^-$')
-plt.plot((Hminf-100)/1000, r_Rminft, 'r-', label = r'$x/x_d=\infty$')
+plt.plot((Hminf - 100)/1000, r_Rminft, 'r-', label = r'$x/x_d=-\infty$')
 plt.grid()
 plt.tick_params(axis='x', which='major', labelsize=20)
 plt.tick_params(axis='y', which='major', labelsize=20)
 plt.xlabel(r'$H$ [kPa]', fontsize=20)
 plt.ylabel(r'r/R', fontsize=20)
 plt.legend(fontsize=20)
+#plt.xlim(75,100)
 plt.savefig('H1menos.pdf', format='pdf', dpi=1000)

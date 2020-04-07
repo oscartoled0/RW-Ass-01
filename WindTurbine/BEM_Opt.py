@@ -140,7 +140,7 @@ def ExecuteBEM_opt(N, Variables):
             aline_new = ftan[i]*NBlades/(2*np.pi*Uinf*(1-a[i])*Omega*2*(r_R[i]*Radius)**2)
             aline_new = aline_new/Prandtl # correct estimate of azimuthal induction with Prandtl's correction
     
-            if (abs(aline_new-aline[i])<0.003):
+            if (abs(aline_new-aline[i])<0.0001):
                 stop = True
 #                display(stop)
             else:
