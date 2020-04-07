@@ -143,4 +143,4 @@ def ExecuteBEM_opt(N, Variables):
     CP = np.sum(dr*ftan*r_R*NBlades*Radius*Omega/(0.5*Uinf**3*np.pi*Radius**2))   
     CT = np.sum(dr*fnorm*NBlades/(0.5*Uinf**2*np.pi*Radius**2))
 
-    return[CP, CT, fnorm, ftan, gamma, chord, twist, r_R, phi, a, aline, vmag2]
+    return[CP, CT, fnorm, ftan, gamma, chord, twist, r_R, phi, a, aline, vmag2, r]
